@@ -8,7 +8,7 @@ app = Flask(__name__)
 app.config["MYSQL_HOST"] = os.getenv("MYSQL_HOST", "mysql")
 app.config["MYSQL_USER"] = os.getenv("MYSQL_USER", "jenkins")
 app.config["MYSQL_PASSWORD"] = os.getenv("MYSQL_PASSWORD", "jenkinspass")
-app.config["MYSQL_DB"] = os.getenv("MYSQL_DATABASE", "jenkins_builds")
+app.config["MYSQL_DB"] = os.getenv("MYSQL_DB", "jenkins_builds")
 app.config["MYSQL_CURSORCLASS"] = "DictCursor"
 
 mysql = MySQL(app)
@@ -26,7 +26,8 @@ def init_db():
                 end_time BIGINT NOT NULL,
                 build_duration INT GENERATED ALWAYS AS (end_time - start_time) STORED,
                 build_result ENUM('SUCCESS', 'FAILURE', 'ABORTED', 'UNSTABLE') NOT NULL,
-                job_url TEXT NOT NULL,
+                build_url TEXT NOT NULL,
+                build_number INT NOT NULL,
                 node_name VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -38,15 +39,15 @@ def init_db():
 def receive_build():
     data = request.json
 
-    required_fields = {"job_name", "start_time", "end_time", "build_result", "job_url"}
+    required_fields = {"job_name", "start_time", "end_time", "build_result", "build_url", "build_number"}
     if not required_fields.issubset(data.keys()):
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
         cursor = mysql.connection.cursor()
         cursor.execute("""
-            INSERT INTO builds (job_name, branch_name, commit_hash, start_time, end_time, build_result, job_url, node_name) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO builds (job_name, branch_name, commit_hash, start_time, end_time, build_result, build_url, build_number, node_name) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             data["job_name"], 
             data.get("branch_name"), 
@@ -54,7 +55,8 @@ def receive_build():
             data["start_time"], 
             data["end_time"], 
             data["build_result"], 
-            data["job_url"], 
+            data["build_url"], 
+            int(data["build_number"]), 
             data.get("node_name")
         ))
         mysql.connection.commit()
