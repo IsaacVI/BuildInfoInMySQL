@@ -28,6 +28,9 @@ def init_db():
                 build_result ENUM('SUCCESS', 'FAILURE', 'ABORTED', 'UNSTABLE') NOT NULL,
                 build_url TEXT NOT NULL,
                 build_number INT NOT NULL,
+                build_name VARCHAR(255),
+                warnings_count INT,
+                errors_count INT,
                 node_name VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -39,15 +42,15 @@ def init_db():
 def receive_build():
     data = request.json
 
-    required_fields = {"job_name", "start_time", "end_time", "build_result", "build_url", "build_number"}
+    required_fields = {"job_name", "start_time", "end_time", "build_result", "build_url", "build_number", "build_name"}
     if not required_fields.issubset(data.keys()):
         return jsonify({"error": "Missing required fields"}), 400
 
     try:
         cursor = mysql.connection.cursor()
         cursor.execute("""
-            INSERT INTO builds (job_name, branch_name, commit_hash, start_time, end_time, build_result, build_url, build_number, node_name) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO builds (job_name, branch_name, commit_hash, start_time, end_time, build_result, build_url, build_number, build_name, warnings_count, errors_count, node_name) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             data["job_name"], 
             data.get("branch_name"), 
@@ -56,7 +59,10 @@ def receive_build():
             data["end_time"], 
             data["build_result"], 
             data["build_url"], 
-            int(data["build_number"]), 
+            data["build_number"], 
+            data["build_name"], 
+            data.get("warnings_count"), 
+            data.get("errors_count"), 
             data.get("node_name")
         ))
         mysql.connection.commit()
